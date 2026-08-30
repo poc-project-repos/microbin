@@ -1,11 +1,14 @@
 services:
-  microbin:
-    image: ${MICROBIN_IMAGE:-microbin:latest}
+  # ----------------------------------------------------------------------------
+  # Release Slot (Production) - https://bin-release.${DOMAIN_NAME}
+  # ----------------------------------------------------------------------------
+  microbin-release:
+    image: ${MICROBIN_RELEASE_IMAGE:-microbin:latest}
     restart: always
     environment:
       MICROBIN_PORT: "8080"
       MICROBIN_BIND: "0.0.0.0"
-      MICROBIN_PUBLIC_PATH: "https://${DOMAIN_NAME}/"
+      MICROBIN_PUBLIC_PATH: "https://${DOMAIN_RELEASE}/"
       MICROBIN_DATA_DIR: "/app/microbin_data"
       MICROBIN_EDITABLE: ${MICROBIN_EDITABLE:-true}
       MICROBIN_HIGHLIGHTSYNTAX: ${MICROBIN_HIGHLIGHTSYNTAX:-true}
@@ -17,12 +20,42 @@ services:
       MICROBIN_ADMIN_USERNAME: ${MICROBIN_ADMIN_USERNAME:-admin}
       MICROBIN_ADMIN_PASSWORD: ${MICROBIN_ADMIN_PASSWORD:-changeme}
     volumes:
-      - microbin_data:/app/microbin_data
+      - microbin_release_data:/app/microbin_data
     networks:
       - microbin-net
     expose:
       - "8080"
 
+  # ----------------------------------------------------------------------------
+  # Preview Slot (Staging) - https://bin-preview.${DOMAIN_NAME}
+  # ----------------------------------------------------------------------------
+  microbin-preview:
+    image: ${MICROBIN_PREVIEW_IMAGE:-microbin:latest}
+    restart: always
+    environment:
+      MICROBIN_PORT: "8080"
+      MICROBIN_BIND: "0.0.0.0"
+      MICROBIN_PUBLIC_PATH: "https://${DOMAIN_PREVIEW}/"
+      MICROBIN_DATA_DIR: "/app/microbin_data"
+      MICROBIN_EDITABLE: ${MICROBIN_EDITABLE:-true}
+      MICROBIN_HIGHLIGHTSYNTAX: ${MICROBIN_HIGHLIGHTSYNTAX:-true}
+      MICROBIN_PRIVATE: ${MICROBIN_PRIVATE:-true}
+      MICROBIN_ENABLE_BURN_AFTER: ${MICROBIN_ENABLE_BURN_AFTER:-true}
+      MICROBIN_ENABLE_READONLY: ${MICROBIN_ENABLE_READONLY:-true}
+      MICROBIN_ENCRYPTION_CLIENT_SIDE: ${MICROBIN_ENCRYPTION_CLIENT_SIDE:-true}
+      MICROBIN_ENCRYPTION_SERVER_SIDE: ${MICROBIN_ENCRYPTION_SERVER_SIDE:-true}
+      MICROBIN_ADMIN_USERNAME: ${MICROBIN_ADMIN_USERNAME:-admin}
+      MICROBIN_ADMIN_PASSWORD: ${MICROBIN_ADMIN_PASSWORD:-changeme}
+    volumes:
+      - microbin_preview_data:/app/microbin_data
+    networks:
+      - microbin-net
+    expose:
+      - "8080"
+
+  # ----------------------------------------------------------------------------
+  # Caddy Reverse Proxy & Automatic Let's Encrypt TLS Terminator
+  # ----------------------------------------------------------------------------
   caddy:
     image: caddy:2-alpine
     restart: always
@@ -31,7 +64,8 @@ services:
       - "443:443"
       - "443:443/udp" # HTTP/3 QUIC support
     environment:
-      DOMAIN_NAME: ${DOMAIN_NAME}
+      DOMAIN_RELEASE: ${DOMAIN_RELEASE}
+      DOMAIN_PREVIEW: ${DOMAIN_PREVIEW}
       ACME_EMAIL: ${ACME_EMAIL}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
@@ -40,10 +74,12 @@ services:
     networks:
       - microbin-net
     depends_on:
-      - microbin
+      - microbin-release
+      - microbin-preview
 
 volumes:
-  microbin_data:
+  microbin_release_data:
+  microbin_preview_data:
   caddy_data:
   caddy_config:
 

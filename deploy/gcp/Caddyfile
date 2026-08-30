@@ -8,13 +8,27 @@
     }
 }
 
-# Domain configured via environment variable
-{$DOMAIN_NAME} {
-    # Automatic HTTPS via Let's Encrypt / ZeroSSL
+# ------------------------------------------------------------------------------
+# Release / Production Slot (release/v* branches)
+# ------------------------------------------------------------------------------
+{$DOMAIN_RELEASE} {
     encode zstd gzip
 
-    # Reverse proxy to MicroBin container
-    reverse_proxy microbin:8080 {
+    reverse_proxy microbin-release:8080 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}
+
+# ------------------------------------------------------------------------------
+# Preview Slot (main branch / preview deployments)
+# ------------------------------------------------------------------------------
+{$DOMAIN_PREVIEW} {
+    encode zstd gzip
+
+    reverse_proxy microbin-preview:8080 {
         header_up Host {host}
         header_up X-Real-IP {remote_host}
         header_up X-Forwarded-For {remote_host}

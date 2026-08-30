@@ -7,6 +7,15 @@ on:
       - 'release/v*'
   workflow_dispatch:
     inputs:
+      target_env:
+        description: 'Target Environment'
+        required: true
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - preview
+          - release
       gcp_region:
         description: 'GCP Always-Free Region'
         required: true
@@ -49,12 +58,28 @@ env:
 
 jobs:
   build-and-deploy:
-    name: Build, Publish & Deploy (MicroBin + Caddy TLS)
+    name: Build, Publish & Deploy (Dual-Slot Caddy TLS)
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v5
+
+      - name: Determine Deployment Slot
+        id: slot
+        run: |
+          choice="${{ github.event.inputs.target_env || 'auto' }}"
+          ref="${{ github.ref }}"
+          
+          if [ "$choice" = "release" ] || ([ "$choice" = "auto" ] && [[ "$ref" == refs/heads/release/v* ]]); then
+            echo "TARGET_SLOT=release" >> $GITHUB_ENV
+            echo "TARGET_SERVICE=microbin-release" >> $GITHUB_ENV
+            echo "TARGET_DOMAIN=bin-release.${{ env.DOMAIN_NAME }}" >> $GITHUB_ENV
+          else
+            echo "TARGET_SLOT=preview" >> $GITHUB_ENV
+            echo "TARGET_SERVICE=microbin-preview" >> $GITHUB_ENV
+            echo "TARGET_DOMAIN=bin-preview.${{ env.DOMAIN_NAME }}" >> $GITHUB_ENV
+          fi
 
       - name: Google Cloud Authentication (OIDC / Keyless WIF)
         uses: google-github-actions/auth@v2
@@ -75,7 +100,7 @@ jobs:
           IMAGE_URI="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.IMAGE_NAME }}"
           echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
           echo "TAG_SHA=${IMAGE_URI}:${{ github.sha }}" >> $GITHUB_ENV
-          echo "TAG_LATEST=${IMAGE_URI}:latest" >> $GITHUB_ENV
+          echo "TAG_LATEST=${IMAGE_URI}:${{ env.TARGET_SLOT }}-latest" >> $GITHUB_ENV
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -92,15 +117,9 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Generate Production Environment File
-        run: |
-          echo "MICROBIN_IMAGE=${{ env.TAG_SHA }}" > /tmp/microbin.env
-          echo "DOMAIN_NAME=${{ env.DOMAIN_NAME }}" >> /tmp/microbin.env
-          echo "ACME_EMAIL=${{ env.ACME_EMAIL }}" >> /tmp/microbin.env
-
       - name: Deploy to GCE VM via gcloud SSH
         run: |
-          echo "Connecting to VM ${{ env.VM_NAME }} in zone ${{ env.GCP_ZONE }}..."
+          echo "Deploying ${{ env.TARGET_SLOT }} slot to VM ${{ env.VM_NAME }} in zone ${{ env.GCP_ZONE }}..."
           
           # Create remote application directory
           gcloud compute ssh ${{ env.VM_NAME }} \
@@ -108,17 +127,31 @@ jobs:
             --project=${{ env.PROJECT_ID }} \
             --command="sudo mkdir -p /opt/microbin"
 
-          # Copy Caddyfile, docker-compose.prod.yml, and environment config to VM
-          gcloud compute scp deploy/gcp/Caddyfile deploy/gcp/docker-compose.prod.yml /tmp/microbin.env \
+          # Copy Caddyfile and docker-compose.prod.yml to VM
+          gcloud compute scp deploy/gcp/Caddyfile deploy/gcp/docker-compose.prod.yml \
             ${{ env.VM_NAME }}:/tmp/ \
             --zone=${{ env.GCP_ZONE }} \
             --project=${{ env.PROJECT_ID }}
 
-          # Move files into /opt/microbin/
+          # Move templates and update slot environment variables
           gcloud compute ssh ${{ env.VM_NAME }} \
             --zone=${{ env.GCP_ZONE }} \
             --project=${{ env.PROJECT_ID }} \
-            --command="sudo mv /tmp/Caddyfile /tmp/docker-compose.prod.yml /opt/microbin/ && sudo mv /tmp/microbin.env /opt/microbin/.env"
+            --command="sudo mv /tmp/Caddyfile /tmp/docker-compose.prod.yml /opt/microbin/ && \
+              sudo touch /opt/microbin/.env && \
+              sudo sed -i '/^DOMAIN_RELEASE=/d' /opt/microbin/.env && \
+              sudo sed -i '/^DOMAIN_PREVIEW=/d' /opt/microbin/.env && \
+              sudo sed -i '/^ACME_EMAIL=/d' /opt/microbin/.env && \
+              echo 'DOMAIN_RELEASE=bin-release.${{ env.DOMAIN_NAME }}' | sudo tee -a /opt/microbin/.env && \
+              echo 'DOMAIN_PREVIEW=bin-preview.${{ env.DOMAIN_NAME }}' | sudo tee -a /opt/microbin/.env && \
+              echo 'ACME_EMAIL=${{ env.ACME_EMAIL }}' | sudo tee -a /opt/microbin/.env && \
+              if [ '${{ env.TARGET_SLOT }}' = 'release' ]; then \
+                sudo sed -i '/^MICROBIN_RELEASE_IMAGE=/d' /opt/microbin/.env && \
+                echo 'MICROBIN_RELEASE_IMAGE=${{ env.TAG_SHA }}' | sudo tee -a /opt/microbin/.env; \
+              else \
+                sudo sed -i '/^MICROBIN_PREVIEW_IMAGE=/d' /opt/microbin/.env && \
+                echo 'MICROBIN_PREVIEW_IMAGE=${{ env.TAG_SHA }}' | sudo tee -a /opt/microbin/.env; \
+              fi"
 
           # Configure Artifact Registry credentials on the VM and start stack
           gcloud compute ssh ${{ env.VM_NAME }} \
@@ -129,4 +162,4 @@ jobs:
               sudo docker compose -f docker-compose.prod.yml pull && \
               sudo docker compose -f docker-compose.prod.yml up -d --remove-orphans"
 
-          echo "Deployment completed successfully! Caddy is managing Let's Encrypt TLS for ${{ env.DOMAIN_NAME }}."
+          echo "Deployment completed successfully! Live URL: https://${{ env.TARGET_DOMAIN }}"
