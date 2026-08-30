@@ -19,25 +19,25 @@ on:
       gcp_region:
         description: 'GCP Always-Free Region'
         required: true
-        default: 'us-central1'
+        default: 'us-east1'
         type: choice
         options:
-          - us-central1
           - us-east1
+          - us-central1
           - us-west1
       gcp_zone:
         description: 'GCP Always-Free Zone'
         required: true
-        default: 'us-central1-a'
+        default: 'us-east1-b'
         type: choice
         options:
+          - us-east1-b
+          - us-east1-c
+          - us-east1-d
           - us-central1-a
           - us-central1-b
           - us-central1-c
           - us-central1-f
-          - us-east1-b
-          - us-east1-c
-          - us-east1-d
           - us-west1-a
           - us-west1-b
           - us-west1-c
@@ -48,17 +48,17 @@ permissions:
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  GCP_REGION: ${{ github.event.inputs.gcp_region || 'us-central1' }}
-  GCP_ZONE: ${{ github.event.inputs.gcp_zone || 'us-central1-a' }}
+  GCP_REGION: ${{ github.event.inputs.gcp_region || 'us-east1' }}
+  GCP_ZONE: ${{ github.event.inputs.gcp_zone || 'us-east1-b' }}
   GAR_REPOSITORY: microbin-repo
   IMAGE_NAME: microbin
   VM_NAME: microbin-free-tier
   DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
-  ACME_EMAIL: ${{ secrets.ACME_EMAIL }}
+  CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
 
 jobs:
   build-and-deploy:
-    name: Build, Publish & Deploy (Dual-Slot Caddy TLS)
+    name: Build, Publish & Deploy (Cloudflare Tunnel)
     runs-on: ubuntu-latest
 
     steps:
@@ -127,24 +127,24 @@ jobs:
             --project=${{ env.PROJECT_ID }} \
             --command="sudo mkdir -p /opt/microbin"
 
-          # Copy Caddyfile and docker-compose.prod.yml to VM
-          gcloud compute scp deploy/gcp/Caddyfile deploy/gcp/docker-compose.prod.yml \
+          # Copy docker-compose.prod.yml to VM
+          gcloud compute scp deploy/gcp/docker-compose.prod.yml \
             ${{ env.VM_NAME }}:/tmp/ \
             --zone=${{ env.GCP_ZONE }} \
             --project=${{ env.PROJECT_ID }}
 
-          # Move templates and update slot environment variables
+          # Move compose config and update slot environment variables
           gcloud compute ssh ${{ env.VM_NAME }} \
             --zone=${{ env.GCP_ZONE }} \
             --project=${{ env.PROJECT_ID }} \
-            --command="sudo mv /tmp/Caddyfile /tmp/docker-compose.prod.yml /opt/microbin/ && \
+            --command="sudo mv /tmp/docker-compose.prod.yml /opt/microbin/ && \
               sudo touch /opt/microbin/.env && \
               sudo sed -i '/^DOMAIN_RELEASE=/d' /opt/microbin/.env && \
               sudo sed -i '/^DOMAIN_PREVIEW=/d' /opt/microbin/.env && \
-              sudo sed -i '/^ACME_EMAIL=/d' /opt/microbin/.env && \
+              sudo sed -i '/^CLOUDFLARE_TUNNEL_TOKEN=/d' /opt/microbin/.env && \
               echo 'DOMAIN_RELEASE=bin-release.${{ env.DOMAIN_NAME }}' | sudo tee -a /opt/microbin/.env && \
               echo 'DOMAIN_PREVIEW=bin-preview.${{ env.DOMAIN_NAME }}' | sudo tee -a /opt/microbin/.env && \
-              echo 'ACME_EMAIL=${{ env.ACME_EMAIL }}' | sudo tee -a /opt/microbin/.env && \
+              echo 'CLOUDFLARE_TUNNEL_TOKEN=${{ env.CLOUDFLARE_TUNNEL_TOKEN }}' | sudo tee -a /opt/microbin/.env && \
               if [ '${{ env.TARGET_SLOT }}' = 'release' ]; then \
                 sudo sed -i '/^MICROBIN_RELEASE_IMAGE=/d' /opt/microbin/.env && \
                 echo 'MICROBIN_RELEASE_IMAGE=${{ env.TAG_SHA }}' | sudo tee -a /opt/microbin/.env; \

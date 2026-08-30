@@ -54,23 +54,14 @@ services:
       - "8080"
 
   # ----------------------------------------------------------------------------
-  # Caddy Reverse Proxy & Automatic Let's Encrypt TLS Terminator
+  # Cloudflare Zero Trust Tunnel Agent (Outbound Encrypted QUIC Connection)
   # ----------------------------------------------------------------------------
-  caddy:
-    image: caddy:2-alpine
+  cloudflared:
+    image: cloudflare/cloudflared:latest
     restart: always
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp" # HTTP/3 QUIC support
+    command: tunnel --no-autoupdate run
     environment:
-      DOMAIN_RELEASE: ${DOMAIN_RELEASE}
-      DOMAIN_PREVIEW: ${DOMAIN_PREVIEW}
-      ACME_EMAIL: ${ACME_EMAIL}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data      # Stores certificates and ACME account keys
-      - caddy_config:/config  # Stores Caddy runtime configuration
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
     networks:
       - microbin-net
     depends_on:
@@ -80,8 +71,6 @@ services:
 volumes:
   microbin_release_data:
   microbin_preview_data:
-  caddy_data:
-  caddy_config:
 
 networks:
   microbin-net:

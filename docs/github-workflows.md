@@ -136,11 +136,11 @@ Uses a **10-platform matrix** to build static binaries for all major OS and CPU 
 | `GCP_PROJECT_ID` | `deploy.yml` | Google Cloud Project ID |
 | `WIF_PROVIDER` | `deploy.yml` | Full resource path of the GCP Workload Identity Provider |
 | `WIF_SERVICE_ACCOUNT` | `deploy.yml` | GCP Service Account email (`microbin-deployer@...`) |
-| `DOMAIN_NAME` | `deploy.yml` | FQDN for Let's Encrypt TLS (e.g. `bin.yourdomain.com`) |
-| `ACME_EMAIL` | `deploy.yml` | Email address for Let's Encrypt renewal notifications |
-| `DOCKERHUB_USERNAME` | `release.yml` | Docker Hub username |
-| `DOCKERHUB_TOKEN` | `release.yml` | Docker Hub access token |
-| `DOCKERHUB_REPO` | `release.yml` | Target Docker Hub repository path (e.g. `user/microbin`) |
+| `DOMAIN_NAME` | `deploy.yml` | Base domain (e.g. `yourdomain.com`) |
+| `CLOUDFLARE_TUNNEL_TOKEN` | `deploy.yml` | Cloudflare Zero Trust Tunnel Token |
+| `DOCKERHUB_USERNAME` | `release.yml` | Docker Hub username (optional) |
+| `DOCKERHUB_TOKEN` | `release.yml` | Docker Hub access token (optional) |
+| `DOCKERHUB_REPO` | `release.yml` | Target Docker Hub repository path (optional) |
 
 ---
 
