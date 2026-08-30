@@ -92,11 +92,9 @@ jobs:
 
       - name: Generate Production Environment File
         run: |
-          cat << 'EOF' > /tmp/microbin.env
-          MICROBIN_IMAGE=${{ env.TAG_SHA }}
-          DOMAIN_NAME=${{ env.DOMAIN_NAME }}
-          ACME_EMAIL=${{ env.ACME_EMAIL }}
-          EOF
+          echo "MICROBIN_IMAGE=${{ env.TAG_SHA }}" > /tmp/microbin.env
+          echo "DOMAIN_NAME=${{ env.DOMAIN_NAME }}" >> /tmp/microbin.env
+          echo "ACME_EMAIL=${{ env.ACME_EMAIL }}" >> /tmp/microbin.env
 
       - name: Deploy to GCE VM via gcloud SSH
         run: |
