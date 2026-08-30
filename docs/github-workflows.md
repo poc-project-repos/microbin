@@ -67,7 +67,7 @@ This document provides a comprehensive analysis of all GitHub Actions workflows 
   1. Installs the official Rust stable toolchain with the `clippy` component via `dtolnay/rust-toolchain`.
   2. Installs SARIF formatting utilities (`clippy-sarif`, `sarif-fmt`).
   3. Executes `cargo clippy --all-features --message-format=json` and formats output to `rust-clippy-results.sarif`.
-  4. Uploads findings to GitHub Code Scanning via `github/codeql-action/upload-sarif@v3`.
+  4. Uploads findings to GitHub Code Scanning via `github/codeql-action/upload-sarif@v4`.
 
 ---
 
