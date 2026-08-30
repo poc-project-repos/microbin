@@ -1,0 +1,52 @@
+services:
+  microbin:
+    image: ${MICROBIN_IMAGE:-microbin:latest}
+    restart: always
+    environment:
+      MICROBIN_PORT: "8080"
+      MICROBIN_BIND: "0.0.0.0"
+      MICROBIN_PUBLIC_PATH: "https://${DOMAIN_NAME}/"
+      MICROBIN_DATA_DIR: "/app/microbin_data"
+      MICROBIN_EDITABLE: ${MICROBIN_EDITABLE:-true}
+      MICROBIN_HIGHLIGHTSYNTAX: ${MICROBIN_HIGHLIGHTSYNTAX:-true}
+      MICROBIN_PRIVATE: ${MICROBIN_PRIVATE:-true}
+      MICROBIN_ENABLE_BURN_AFTER: ${MICROBIN_ENABLE_BURN_AFTER:-true}
+      MICROBIN_ENABLE_READONLY: ${MICROBIN_ENABLE_READONLY:-true}
+      MICROBIN_ENCRYPTION_CLIENT_SIDE: ${MICROBIN_ENCRYPTION_CLIENT_SIDE:-true}
+      MICROBIN_ENCRYPTION_SERVER_SIDE: ${MICROBIN_ENCRYPTION_SERVER_SIDE:-true}
+      MICROBIN_ADMIN_USERNAME: ${MICROBIN_ADMIN_USERNAME:-admin}
+      MICROBIN_ADMIN_PASSWORD: ${MICROBIN_ADMIN_PASSWORD:-changeme}
+    volumes:
+      - microbin_data:/app/microbin_data
+    networks:
+      - microbin-net
+    expose:
+      - "8080"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3 QUIC support
+    environment:
+      DOMAIN_NAME: ${DOMAIN_NAME}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data      # Stores certificates and ACME account keys
+      - caddy_config:/config  # Stores Caddy runtime configuration
+    networks:
+      - microbin-net
+    depends_on:
+      - microbin
+
+volumes:
+  microbin_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  microbin-net:
+    driver: bridge

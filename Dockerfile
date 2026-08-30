@@ -1,10 +1,17 @@
-FROM rust:1 AS build
+# ==============================================================================
+# Single Source of Truth (SSOT) for Base Image Tags (12-Factor II & X)
+# ==============================================================================
+ARG RUST_IMAGE_TAG=1-bookworm
+ARG DISTROLESS_IMAGE=gcr.io/distroless/cc-debian12:latest
+
+# --- Build Stage ---
+FROM rust:${RUST_IMAGE_TAG} AS build
 
 WORKDIR /app
 
 RUN DEBIAN_FRONTEND=noninteractive \
     apt-get update && \
-    apt-get -y install --no-install-recommends ca-certificates tzdata && \
+    apt-get -y install --no-install-recommends ca-certificates tzdata liblzma-dev libbz2-dev && \
     rm -rf /var/lib/apt/lists/*
 
 COPY . .
@@ -12,9 +19,9 @@ COPY . .
 RUN CARGO_NET_GIT_FETCH_WITH_CLI=true cargo build --release && \
     mkdir -p /app/microbin_data
 
-# https://github.com/GoogleContainerTools/distroless
-# nonroot user (uid:gid 65532:65532) is pre-defined in distroless images
-FROM gcr.io/distroless/cc-debian12
+# --- Runtime Stage ---
+# Distroless cc-debian12 includes nonroot user (uid:gid 65532:65532) and minimal glibc/libgcc
+FROM ${DISTROLESS_IMAGE}
 
 WORKDIR /app
 
@@ -23,6 +30,12 @@ COPY --from=build /usr/share/zoneinfo /usr/share/zoneinfo
 
 # copy CA certificates from build stage
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+
+# copy runtime dynamic libraries required by compression crates (bzip2, lzma)
+COPY --from=build /lib/*-linux-gnu/liblzma.so.5* /lib/
+COPY --from=build /usr/lib/*-linux-gnu/liblzma.so.5* /usr/lib/
+COPY --from=build /lib/*-linux-gnu/libbz2.so.1* /lib/
+COPY --from=build /usr/lib/*-linux-gnu/libbz2.so.1* /usr/lib/
 
 # copy built executable
 COPY --from=build /app/target/release/microbin /usr/bin/microbin

@@ -1,0 +1,42 @@
+name: "Code Quality & Linting"
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  schedule:
+    - cron: '35 12 * * 5'
+  workflow_dispatch:
+
+jobs:
+  clippy-analyze:
+    name: Run Clippy & SARIF Security Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Install required cargo tools
+        run: cargo install clippy-sarif sarif-fmt
+
+      - name: Run rust-clippy
+        run:
+          cargo clippy
+          --all-features
+          --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
+        continue-on-error: true
+
+      - name: Upload analysis results to GitHub
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: rust-clippy-results.sarif
+          wait-for-processing: true
