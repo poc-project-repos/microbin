@@ -1,0 +1,17 @@
+# ==============================================================================
+# Dockerfile-Driven Allowlist .dockerignore
+# Principle: Exclude everything by default, un-ignore only what Dockerfile needs
+# ==============================================================================
+
+# 1. Ignore everything by default
+**
+
+# 2. Re-include only build manifests and source directories referenced in Dockerfile
+!Cargo.toml
+!Cargo.lock
+!.cargo/
+!.cargo/**
+!src/
+!src/**
+!templates/
+!templates/**

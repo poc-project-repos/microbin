@@ -1,0 +1,23 @@
+{
+    # Global options
+    email {$ACME_EMAIL}
+    # Log HTTP requests in structured format
+    log {
+        output stdout
+        format console
+    }
+}
+
+# Domain configured via environment variable
+{$DOMAIN_NAME} {
+    # Automatic HTTPS via Let's Encrypt / ZeroSSL
+    encode zstd gzip
+
+    # Reverse proxy to MicroBin container
+    reverse_proxy microbin:8080 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}
