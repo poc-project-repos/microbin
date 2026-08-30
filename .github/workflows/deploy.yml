@@ -90,6 +90,14 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Generate Production Environment File
+        run: |
+          cat << 'EOF' > /tmp/microbin.env
+          MICROBIN_IMAGE=${{ env.TAG_SHA }}
+          DOMAIN_NAME=${{ env.DOMAIN_NAME }}
+          ACME_EMAIL=${{ env.ACME_EMAIL }}
+          EOF
+
       - name: Deploy to GCE VM via gcloud SSH
         run: |
           echo "Connecting to VM ${{ env.VM_NAME }} in zone ${{ env.GCP_ZONE }}..."
@@ -100,22 +108,17 @@ jobs:
             --project=${{ env.PROJECT_ID }} \
             --command="sudo mkdir -p /opt/microbin"
 
-          # Copy Caddyfile and docker-compose.prod.yml to VM
-          gcloud compute scp deploy/gcp/Caddyfile deploy/gcp/docker-compose.prod.yml \
+          # Copy Caddyfile, docker-compose.prod.yml, and environment config to VM
+          gcloud compute scp deploy/gcp/Caddyfile deploy/gcp/docker-compose.prod.yml /tmp/microbin.env \
             ${{ env.VM_NAME }}:/tmp/ \
             --zone=${{ env.GCP_ZONE }} \
             --project=${{ env.PROJECT_ID }}
 
-          # Move files to /opt/microbin and write production .env
+          # Move files into /opt/microbin/
           gcloud compute ssh ${{ env.VM_NAME }} \
             --zone=${{ env.GCP_ZONE }} \
             --project=${{ env.PROJECT_ID }} \
-            --command="sudo mv /tmp/Caddyfile /tmp/docker-compose.prod.yml /opt/microbin/ && \
-              sudo bash -c 'cat << EOF > /opt/microbin/.env
-MICROBIN_IMAGE=${{ env.TAG_SHA }}
-DOMAIN_NAME=${{ env.DOMAIN_NAME }}
-ACME_EMAIL=${{ env.ACME_EMAIL }}
-EOF'"
+            --command="sudo mv /tmp/Caddyfile /tmp/docker-compose.prod.yml /opt/microbin/ && sudo mv /tmp/microbin.env /opt/microbin/.env"
 
           # Configure Artifact Registry credentials on the VM and start stack
           gcloud compute ssh ${{ env.VM_NAME }} \
