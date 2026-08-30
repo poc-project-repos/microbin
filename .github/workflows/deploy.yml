@@ -2,7 +2,9 @@ name: "CD: Deploy to GCP Always-Free"
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - main
+      - 'release/v*'
   workflow_dispatch:
     inputs:
       gcp_region:

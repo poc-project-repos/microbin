@@ -2,9 +2,27 @@ name: "Code Quality & Linting"
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - main
+      - 'release/v*'
+      - 'feature/**'
+      - 'fix/**'
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.agents/**'
   pull_request:
-    branches: [ master ]
+    branches:
+      - main
+      - 'release/v*'
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.agents/**'
   schedule:
     - cron: '35 12 * * 5'
   workflow_dispatch:
@@ -12,6 +30,18 @@ on:
 jobs:
   clippy-analyze:
     name: Run Clippy & SARIF Security Analysis
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule' ||
+      startsWith(github.ref, 'refs/heads/release/v') ||
+      startsWith(github.ref, 'refs/heads/feature/') ||
+      startsWith(github.ref, 'refs/heads/fix/') ||
+      startsWith(github.head_ref, 'feature/') ||
+      startsWith(github.head_ref, 'fix/') ||
+      startsWith(github.head_ref, 'release/v') ||
+      startsWith(github.event.head_commit.message, 'feat') ||
+      startsWith(github.event.head_commit.message, 'fix') ||
+      startsWith(github.event.head_commit.message, 'release')
     runs-on: ubuntu-latest
     permissions:
       contents: read
