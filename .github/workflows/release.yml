@@ -71,7 +71,7 @@ jobs:
 
     steps:
       - name: Checkout Source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Parse Release Version
         id: check-tag
@@ -157,7 +157,7 @@ jobs:
     needs: release
     steps:
       - name: Checkout Source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Docker Meta
         id: meta

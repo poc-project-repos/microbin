@@ -46,7 +46,7 @@ This document provides a comprehensive analysis of all GitHub Actions workflows 
 * **Execution Environment:** `ubuntu-latest`
 * **Trigger:** Every push or pull request targeting the `master` branch, and manual `workflow_dispatch`.
 * **Execution Steps:**
-  1. `actions/checkout@v4`: Fetches repository source.
+  1. `actions/checkout@v5`: Fetches repository source.
   2. `dtolnay/rust-toolchain@stable`: Sets up active Rust toolchain.
   3. `cargo build --verbose`: Compiles the binary in debug mode.
   4. `cargo test --verbose`: Runs all test suites (e.g. `animalnumbers.rs`).
